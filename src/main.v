@@ -40,6 +40,11 @@ mut:
 	pass_action  gfx.PassAction
 	font_context &fontstash.Context
 	font_normal  int
+
+	width int
+	height int
+	shader_pipeline gfx.Pipeline
+	bind            gfx.Bindings
 	
 	pixels []f32
 	start_epoch time.StopWatch
@@ -68,6 +73,9 @@ fn main() {
 	}
 	stop_watch := time.new_stopwatch()
 	mut state := &AppState{
+		width: 1280
+		height: 720
+
 		pixels: pixels
 		start_epoch: stop_watch
 		last_frame_time: stop_watch.elapsed().milliseconds()
@@ -80,11 +88,17 @@ fn main() {
 
 	title := 'Night Shade'
 	desc := sapp.Desc{
+		width: state.width
+		height: state.height
+
 		user_data: state
 		init_userdata_cb: init
 		frame_userdata_cb: frame
 		window_title: title.str
 		html5_canvas_name: title.str
+
+		cleanup_userdata_cb: cleanup
+		sample_count: 4 // Enables MSAA (Multisample anti-aliasing) x4 on rendered output, this can be omitted.
 	}
 	sapp.run(&desc)
 }
@@ -103,6 +117,53 @@ fn init(mut state AppState) {
 	} else {
 		println("failed to load font at ${os.resource_abs_path(os.join_path('..', 'assets', 'fonts', 'RobotoMono-Regular.ttf'))}")
 	}
+
+	vertices := [
+		Vertex_t{0.0, 0.5, 0.5, 1.0, 0.0, 0.0, 1.0},
+		Vertex_t{0.5, -0.5, 0.5, 0.0, 1.0, 0.0, 1.0},
+		Vertex_t{-0.5, -0.5, 0.5, 0.0, 0.0, 1.0, 1.0},
+	]
+
+	// Create a vertex buffer with the 3 vertices defined above.
+	mut vertex_buffer_desc := gfx.BufferDesc{
+		label: c'triangle-vertices'
+	}
+	unsafe { vmemset(&vertex_buffer_desc, 0, int(sizeof(vertex_buffer_desc))) }
+
+	vertex_buffer_desc.size = usize(vertices.len * int(sizeof(Vertex_t)))
+	vertex_buffer_desc.data = gfx.Range{
+		ptr: vertices.data
+		size: vertex_buffer_desc.size
+	}
+
+	state.bind.vertex_buffers[0] = gfx.make_buffer(&vertex_buffer_desc)
+
+	// Create shader from the code-generated sg_shader_desc (gfx.ShaderDesc in V).
+	// Note the function `C.simple_shader_desc()` (also defined above) - this is
+	// the function that returns the compiled shader code/desciption we have
+	// written in `simple_shader.glsl` and compiled with `v shader .` (`sokol-shdc`).
+	shader := gfx.make_shader(C.simple_shader_desc(gfx.query_backend()))
+
+	eprintln('${gfx.query_backend()} backend selected')
+
+	// Create a pipeline object (default render states are fine for triangle)
+	mut pipeline_desc := gfx.PipelineDesc{}
+	// This will zero the memory used to store the pipeline in.
+	unsafe { vmemset(&pipeline_desc, 0, int(sizeof(pipeline_desc))) }
+
+	// Populate the essential struct fields
+	pipeline_desc.shader = shader
+	pipeline_desc.layout.attrs[C.ATTR_vs_position].format = .float3 // x,y,z as f32
+	pipeline_desc.layout.attrs[C.ATTR_vs_color0].format = .float4 // r, g, b, a as f32
+	// The .label is optional but can aid debugging sokol shader related issues
+	// When things get complex - and you get tired :)
+	pipeline_desc.label = c'triangle-pipeline'
+
+	state.shader_pipeline = gfx.make_pipeline(&pipeline_desc)
+}
+
+fn cleanup(user_data voidptr) {
+	gfx.shutdown()
 }
 
 fn frame(mut state AppState) {
@@ -127,7 +188,12 @@ fn frame(mut state AppState) {
 	state.render_font()
 	pass := sapp.create_default_pass(state.pass_action)
 	gfx.begin_pass(&pass)
+
 	sgl.draw()
+	gfx.apply_pipeline(state.shader_pipeline)
+	gfx.apply_bindings(&state.bind)
+	gfx.draw(0, 3, 1)
+
 	gfx.end_pass()
 	gfx.commit()
 }
