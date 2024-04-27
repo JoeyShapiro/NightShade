@@ -110,18 +110,22 @@ fn init(mut state AppState) {
 	sgl.setup(s)
 	state.font_context = sfons.create(512, 512, 1)
 	// or use DroidSerif-Regular.ttf
-	if bytes := os.read_bytes(os.resource_abs_path(os.join_path('RobotoMono-Regular.ttf')))
+	if bytes := os.read_bytes(os.resource_abs_path('JetBrainsMono-Regular.ttf'))
 	{
 		println('loaded font: ${bytes.len}')
 		state.font_normal = state.font_context.add_font_mem('sans', bytes, false)
 	} else {
-		println("failed to load font at ${os.resource_abs_path(os.join_path('..', 'assets', 'fonts', 'RobotoMono-Regular.ttf'))}")
+		println("failed to load font at ${os.resource_abs_path('RobotoMono-Regular.ttf')}")
 	}
 
 	vertices := [
-		Vertex_t{0.0, 0.5, 0.5, 1.0, 0.0, 0.0, 1.0},
-		Vertex_t{0.5, -0.5, 0.5, 0.0, 1.0, 0.0, 1.0},
-		Vertex_t{-0.5, -0.5, 0.5, 0.0, 0.0, 1.0, 1.0},
+		Vertex_t{-1.0, 1.0, 0.5, 1.0, 0.0, 0.0, 1.0}, // TL
+		Vertex_t{-1.0, -1.0, 0.5, 0.0, 1.0, 0.0, 1.0}, // BL
+		Vertex_t{1.0, 1.0, 0.5, 0.0, 0.0, 1.0, 1.0}, // TR
+
+		Vertex_t{1.0, 1.0, 0.5, 1.0, 0.0, 0.0, 1.0}, // TR
+		Vertex_t{1.0, -1.0, 0.5, 0.0, 1.0, 0.0, 1.0}, // BR
+		Vertex_t{-1.0, -1.0, 0.5, 0.0, 0.0, 1.0, 1.0}, // BL
 	]
 
 	// Create a vertex buffer with the 3 vertices defined above.
@@ -189,10 +193,10 @@ fn frame(mut state AppState) {
 	pass := sapp.create_default_pass(state.pass_action)
 	gfx.begin_pass(&pass)
 
-	sgl.draw()
 	gfx.apply_pipeline(state.shader_pipeline)
 	gfx.apply_bindings(&state.bind)
-	gfx.draw(0, 3, 1)
+	gfx.draw(0, 6, 1)
+	sgl.draw()
 
 	gfx.end_pass()
 	gfx.commit()
