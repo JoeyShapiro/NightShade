@@ -119,13 +119,13 @@ fn init(mut state AppState) {
 	}
 
 	vertices := [
-		Vertex_t{-1.0, 1.0, 0.5, 1.0, 0.0, 0.0, 1.0}, // TL
-		Vertex_t{-1.0, -1.0, 0.5, 0.0, 1.0, 0.0, 1.0}, // BL
-		Vertex_t{1.0, 1.0, 0.5, 0.0, 0.0, 1.0, 1.0}, // TR
+		Vertex_t{-1.0, 1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // TL
+		Vertex_t{-1.0, -1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // BL
+		Vertex_t{1.0, 1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // TR
 
-		Vertex_t{1.0, 1.0, 0.5, 1.0, 0.0, 0.0, 1.0}, // TR
-		Vertex_t{1.0, -1.0, 0.5, 0.0, 1.0, 0.0, 1.0}, // BR
-		Vertex_t{-1.0, -1.0, 0.5, 0.0, 0.0, 1.0, 1.0}, // BL
+		Vertex_t{1.0, 1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // TR
+		Vertex_t{1.0, -1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // BR
+		Vertex_t{-1.0, -1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // BL
 	]
 
 	// Create a vertex buffer with the 3 vertices defined above.
@@ -159,6 +159,7 @@ fn init(mut state AppState) {
 	pipeline_desc.shader = shader
 	pipeline_desc.layout.attrs[C.ATTR_vs_position].format = .float3 // x,y,z as f32
 	pipeline_desc.layout.attrs[C.ATTR_vs_color0].format = .float4 // r, g, b, a as f32
+	// pipeline_desc.layout.attrs[C.ATTR_]
 	// The .label is optional but can aid debugging sokol shader related issues
 	// When things get complex - and you get tired :)
 	pipeline_desc.label = c'triangle-pipeline'
@@ -196,6 +197,7 @@ fn frame(mut state AppState) {
 	gfx.apply_pipeline(state.shader_pipeline)
 	gfx.apply_bindings(&state.bind)
 	gfx.draw(0, 6, 1)
+
 	sgl.draw()
 
 	gfx.end_pass()
@@ -223,11 +225,13 @@ fn (state &AppState) render_font() {
 	font_context.set_alignment(.left | .baseline)
 	font_context.draw_text(dx, dy, 'tps: ${state.tps}')
 	dy += 18
-	font_context.draw_text(dx, dy, 'FPS: ${state.fps}')
+	font_context.draw_text(dx, dy, 'fps: ${state.fps}')
 	dy += 18
-	font_context.draw_text(dx, dy, 'Max FPS: ${state.max_fps}')
+	font_context.draw_text(dx, dy, 'Max fps: ${state.max_fps}')
 	dy += 18
-	font_context.draw_text(dx, dy, 'Min FPS: ${state.min_fps}')
+	font_context.draw_text(dx, dy, 'Min fps: ${state.min_fps}')
+	dy += 18
+	font_context.draw_text(dx, dy, 'backend: ${gfx.query_backend()}')
 
 	sfons.flush(font_context)
 }

@@ -1,5 +1,14 @@
 // The following defines a vertex shader main function
-@vs vs
+#pragma sokol @vs vs
+struct Ray {
+    vec2 origin;
+    vec2 direction;
+};
+
+uniform Circles {
+  vec4 pos[10];
+};
+
 in vec4 position;
 in vec4 color0;
 
@@ -9,7 +18,12 @@ out vec4 color;
 
 void main() {
     gl_Position = position;
-    color = color0;
+    for (int i = 0; i < 10; i++) {
+        // float dist = distance(vec2(-1, 0), position.xy);
+        float dist = abs(position.x);
+        color = vec4(dist, 0.0, 0.0, 0.2);
+        // color = vec4(position.xy, 0.0, 1.0);
+    }
 }
 @end
 
