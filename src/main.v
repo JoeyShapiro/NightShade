@@ -8,6 +8,11 @@ import sokol.sgl
 import fontstash
 import sokol.sfons
 import os
+import gg
+import gg.m4
+import gx
+import math
+import obj
 
 // Use `v shader` or `sokol-shdc` to generate the necessary `.h` file
 // Using `v shader -v .` in this directory will show some additional
@@ -43,8 +48,8 @@ mut:
 
 	width int
 	height int
-	shader_pipeline gfx.Pipeline
-	bind            gfx.Bindings
+	// shader_pipeline gfx.Pipeline
+	// bind            gfx.Bindings
 	
 	pixels []f32
 	start_epoch time.StopWatch
@@ -54,7 +59,20 @@ mut:
 	last_tick_time i64
 	max_fps f32
 	min_fps f32
+
+	gg          &gg.Context = unsafe { nil }
+	texture     gfx.Image
+	sampler     gfx.Sampler
+	init_flag   bool
+
+	// model
+	obj_part &obj.ObjPart = unsafe { nil }
+	n_vertex u32
+	mouse_x int
+	mouse_y int
 }
+
+const bg_color = gx.white
 
 fn main() {
 	mut pixels := []f32{}
@@ -86,6 +104,20 @@ fn main() {
 		font_context: unsafe { nil } // &fontstash.Context(0)
 	}
 
+	// app.gg = gg.new_context(
+	// 	width: win_width
+	// 	height: win_height
+	// 	create_window: true
+	// 	window_title: 'V Wavefront OBJ viewer - Use the mouse wheel to zoom'
+	// 	user_data: app
+	// 	bg_color: bg_color
+	// 	frame_fn: frame
+	// 	init_fn: my_init
+	// 	cleanup_fn: cleanup
+	// 	event_fn: my_event_manager
+	// )
+	// state.gg.run()
+
 	title := 'Night Shade'
 	desc := sapp.Desc{
 		width: state.width
@@ -106,7 +138,9 @@ fn main() {
 fn init(mut state AppState) {
 	desc := sapp.create_desc()
 	gfx.setup(&desc)
-	s := &sgl.Desc{}
+	s := &sgl.Desc{
+		max_vertices: 128 * 65536
+	}
 	sgl.setup(s)
 	state.font_context = sfons.create(512, 512, 1)
 	// or use DroidSerif-Regular.ttf
@@ -118,53 +152,49 @@ fn init(mut state AppState) {
 		println("failed to load font at ${os.resource_abs_path('RobotoMono-Regular.ttf')}")
 	}
 
-	vertices := [
-		Vertex_t{-1.0, 1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // TL
-		Vertex_t{-1.0, -1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // BL
-		Vertex_t{1.0, 1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // TR
-
-		Vertex_t{1.0, 1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // TR
-		Vertex_t{1.0, -1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // BR
-		Vertex_t{-1.0, -1.0, 0.5, 0.0, 0.0, 0.0, 1.0}, // BL
-	]
-
-	// Create a vertex buffer with the 3 vertices defined above.
-	mut vertex_buffer_desc := gfx.BufferDesc{
-		label: c'triangle-vertices'
-	}
-	unsafe { vmemset(&vertex_buffer_desc, 0, int(sizeof(vertex_buffer_desc))) }
-
-	vertex_buffer_desc.size = usize(vertices.len * int(sizeof(Vertex_t)))
-	vertex_buffer_desc.data = gfx.Range{
-		ptr: vertices.data
-		size: vertex_buffer_desc.size
-	}
-
-	state.bind.vertex_buffers[0] = gfx.make_buffer(&vertex_buffer_desc)
-
 	// Create shader from the code-generated sg_shader_desc (gfx.ShaderDesc in V).
 	// Note the function `C.simple_shader_desc()` (also defined above) - this is
 	// the function that returns the compiled shader code/desciption we have
 	// written in `simple_shader.glsl` and compiled with `v shader .` (`sokol-shdc`).
-	shader := gfx.make_shader(C.simple_shader_desc(gfx.query_backend()))
+	// shader := gfx.make_shader(C.simple_shader_desc(gfx.query_backend()))
 
-	eprintln('${gfx.query_backend()} backend selected')
+	// eprintln('${gfx.query_backend()} backend selected')
 
-	// Create a pipeline object (default render states are fine for triangle)
-	mut pipeline_desc := gfx.PipelineDesc{}
-	// This will zero the memory used to store the pipeline in.
-	unsafe { vmemset(&pipeline_desc, 0, int(sizeof(pipeline_desc))) }
+	// // Create a pipeline object (default render states are fine for triangle)
+	// mut pipeline_desc := gfx.PipelineDesc{}
+	// // This will zero the memory used to store the pipeline in.
+	// unsafe { vmemset(&pipeline_desc, 0, int(sizeof(pipeline_desc))) }
 
-	// Populate the essential struct fields
-	pipeline_desc.shader = shader
-	pipeline_desc.layout.attrs[C.ATTR_vs_position].format = .float3 // x,y,z as f32
-	pipeline_desc.layout.attrs[C.ATTR_vs_color0].format = .float4 // r, g, b, a as f32
-	// pipeline_desc.layout.attrs[C.ATTR_]
-	// The .label is optional but can aid debugging sokol shader related issues
-	// When things get complex - and you get tired :)
-	pipeline_desc.label = c'triangle-pipeline'
+	// // Populate the essential struct fields
+	// pipeline_desc.shader = shader
+	// pipeline_desc.layout.attrs[C.ATTR_vs_position].format = .float3 // x,y,z as f32
+	// pipeline_desc.layout.attrs[C.ATTR_vs_color0].format = .float4 // r, g, b, a as f32
+	// // pipeline_desc.layout.attrs[C.ATTR_]
+	// // The .label is optional but can aid debugging sokol shader related issues
+	// // When things get complex - and you get tired :)
+	// pipeline_desc.label = c'triangle-pipeline'
 
-	state.shader_pipeline = gfx.make_pipeline(&pipeline_desc)
+	// state.shader_pipeline = gfx.make_pipeline(&pipeline_desc)
+
+	mut object := &obj.ObjPart{}
+	obj_file_lines := obj.read_lines_from_file('utahTeapot.obj')
+	object.parse_obj_buffer(obj_file_lines, true)
+	object.summary()
+	state.obj_part = object
+
+	// 1x1 pixel white, default texture
+	unsafe {
+		tmp_txt := malloc(4)
+		tmp_txt[0] = u8(0xFF)
+		tmp_txt[1] = u8(0xFF)
+		tmp_txt[2] = u8(0xFF)
+		tmp_txt[3] = u8(0xFF)
+		state.texture, state.sampler = obj.create_texture(1, 1, tmp_txt)
+		free(tmp_txt)
+	}
+	// glsl
+	state.obj_part.init_render_data(state.texture, state.sampler)
+	state.init_flag = true
 }
 
 fn cleanup(user_data voidptr) {
@@ -194,9 +224,11 @@ fn frame(mut state AppState) {
 	pass := sapp.create_default_pass(state.pass_action)
 	gfx.begin_pass(&pass)
 
-	gfx.apply_pipeline(state.shader_pipeline)
-	gfx.apply_bindings(&state.bind)
-	gfx.draw(0, 6, 1)
+	// gfx.draw(0, 6, 1)
+
+	// ws := gg.window_size_real_pixels()
+	// gfx.apply_viewport(0, 0, ws.width, ws.height, true)
+	draw_model(state, m4.Vec4{})
 
 	sgl.draw()
 
@@ -244,3 +276,95 @@ fn line(sx f32, sy f32, ex f32, ey f32) {
 	sgl.end()
 }
 
+@[inline]
+fn vec4(x f32, y f32, z f32, w f32) m4.Vec4 {
+	return m4.Vec4{
+		e: [x, y, z, w]!
+	}
+}
+
+fn calc_matrices(w f32, h f32, rx f32, ry f32, in_scale f32, pos m4.Vec4) obj.Mats {
+	proj := m4.perspective(60, w / h, 0.01, 100.0) // set far plane to 100 fro the zoom function
+	view := m4.look_at(vec4(f32(0.0), 0, 6, 0), vec4(f32(0), 0, 0, 0), vec4(f32(0), 1,
+		0, 0))
+	view_proj := view * proj
+
+	rxm := m4.rotate(m4.rad(rx), vec4(f32(1), 0, 0, 0))
+	rym := m4.rotate(m4.rad(ry), vec4(f32(0), 1, 0, 0))
+
+	model_pos := m4.unit_m4().translate(pos)
+
+	model_m := (rym * rxm) * model_pos
+	scale_m := m4.scale(vec4(in_scale, in_scale, in_scale, 1))
+
+	mv := scale_m * model_m // model view
+	nm := mv.inverse().transpose() // normal matrix
+	mvp := mv * view_proj // model view projection
+
+	return obj.Mats{
+		mv: mv
+		mvp: mvp
+		nm: nm
+	}
+}
+
+fn draw_model(state AppState, model_pos m4.Vec4) u32 {
+	ws := gg.window_size_real_pixels()
+	dw := ws.width / 2
+	dh := ws.height / 2
+
+	mut scale := f32(1)
+	if state.obj_part.radius > 1 {
+		scale = 1 / (state.obj_part.radius)
+	} else {
+		scale = state.obj_part.radius
+	}
+	scale *= 3
+
+	// *** vertex shader uniforms ***
+	rot := [f32(state.mouse_y), f32(state.mouse_x)]
+	mut zoom_scale := scale + 0.0 / (state.obj_part.radius * 4)
+	mats := calc_matrices(dw, dh, rot[0], rot[1], zoom_scale, model_pos)
+
+	mut tmp_vs_param := obj.Tmp_vs_param{
+		mv: mats.mv
+		mvp: mats.mvp
+		nm: mats.nm
+	}
+
+	// *** fragment shader uniforms ***
+	time_ticks := f32(state.last_tick_time) / 1000
+	radius_light := f32(state.obj_part.radius)
+	x_light := f32(math.cos(time_ticks) * radius_light)
+	z_light := f32(math.sin(time_ticks) * radius_light)
+
+	mut tmp_fs_params := obj.Tmp_fs_param{}
+	tmp_fs_params.light = m4.vec3(x_light, radius_light, z_light)
+
+	sd := obj.Shader_data{
+		vs_data: unsafe { &tmp_vs_param }
+		vs_len: int(sizeof(tmp_vs_param))
+		fs_data: unsafe { &tmp_fs_params }
+		fs_len: int(sizeof(tmp_fs_params))
+	}
+
+	return state.obj_part.bind_and_draw_all(sd)
+}
+
+/******************************************************************************
+* events handling
+******************************************************************************/
+fn my_event_manager(mut ev gg.Event, mut state AppState) {
+	if ev.typ == .mouse_move {
+		state.mouse_x = int(ev.mouse_x)
+		state.mouse_y = int(ev.mouse_y)
+	}
+
+	if ev.typ == .touches_began || ev.typ == .touches_moved {
+		if ev.num_touches > 0 {
+			touch_point := ev.touches[0]
+			state.mouse_x = int(touch_point.pos_x)
+			state.mouse_y = int(touch_point.pos_y)
+		}
+	}
+}
