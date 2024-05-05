@@ -104,19 +104,19 @@ fn main() {
 		font_context: unsafe { nil } // &fontstash.Context(0)
 	}
 
-	// app.gg = gg.new_context(
-	// 	width: win_width
-	// 	height: win_height
-	// 	create_window: true
-	// 	window_title: 'V Wavefront OBJ viewer - Use the mouse wheel to zoom'
-	// 	user_data: app
-	// 	bg_color: bg_color
-	// 	frame_fn: frame
-	// 	init_fn: my_init
-	// 	cleanup_fn: cleanup
-	// 	event_fn: my_event_manager
-	// )
-	// state.gg.run()
+	state.gg = gg.new_context(
+		width: 1280
+		height: 720
+		create_window: true
+		window_title: 'Night Shade'
+		user_data: state
+		bg_color: bg_color
+		frame_fn: frame
+		init_fn: init
+		cleanup_fn: cleanup
+		event_fn: my_event_manager
+	)
+	state.gg.run() // this seems to override the sapp.run() call
 
 	title := 'Night Shade'
 	desc := sapp.Desc{
@@ -144,7 +144,7 @@ fn init(mut state AppState) {
 	sgl.setup(s)
 	state.font_context = sfons.create(512, 512, 1)
 	// or use DroidSerif-Regular.ttf
-	if bytes := os.read_bytes(os.resource_abs_path('JetBrainsMono-Regular.ttf'))
+	if bytes := os.read_bytes(os.resource_abs_path('assets/fonts/JetBrainsMono-Regular.ttf'))
 	{
 		println('loaded font: ${bytes.len}')
 		state.font_normal = state.font_context.add_font_mem('sans', bytes, false)
@@ -358,6 +358,13 @@ fn my_event_manager(mut ev gg.Event, mut state AppState) {
 	if ev.typ == .mouse_move {
 		state.mouse_x = int(ev.mouse_x)
 		state.mouse_y = int(ev.mouse_y)
+	}
+	if ev.typ == .key_down {
+		if ev.key_code == .escape {
+			println('escape key pressed, exiting')
+		} else if ev.key_code == .w {
+			state.mouse_x = int(100)
+		}
 	}
 
 	if ev.typ == .touches_began || ev.typ == .touches_moved {
