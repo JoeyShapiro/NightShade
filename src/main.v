@@ -59,6 +59,8 @@ mut:
 	last_tick_time i64
 	max_fps f32
 	min_fps f32
+	last_shader_time i64
+	sms f32 // TODO what is this called
 
 	gg          &gg.Context = unsafe { nil }
 	texture     gfx.Image
@@ -70,6 +72,8 @@ mut:
 	n_vertex u32
 	mouse_x int
 	mouse_y int
+	x_pos int
+	y_pos int
 }
 
 const bg_color = gx.white
@@ -222,18 +226,22 @@ fn frame(mut state AppState) {
 
 	state.render_font()
 	pass := sapp.create_default_pass(state.pass_action)
+	// TODO maybe skip this stuff if not needed
+	state.last_shader_time = state.start_epoch.elapsed().microseconds() // should be fresh, to be accurate
 	gfx.begin_pass(&pass)
 
 	// gfx.draw(0, 6, 1)
 
 	// ws := gg.window_size_real_pixels()
 	// gfx.apply_viewport(0, 0, ws.width, ws.height, true)
-	draw_model(state, m4.Vec4{})
+	mut pos := [f32(state.x_pos), f32(state.y_pos), 0.0, 0.0]!
+	draw_model(state, m4.Vec4{pos})
 
 	sgl.draw()
 
 	gfx.end_pass()
 	gfx.commit()
+	state.sms = f32(state.start_epoch.elapsed().microseconds() - state.last_shader_time)
 }
 
 fn (state &AppState) render_font() {
@@ -262,6 +270,8 @@ fn (state &AppState) render_font() {
 	font_context.draw_text(dx, dy, 'Max fps: ${state.max_fps}')
 	dy += 18
 	font_context.draw_text(dx, dy, 'Min fps: ${state.min_fps}')
+	dy += 18
+	font_context.draw_text(dx, dy, 'shader: ${state.sms} µs')
 	dy += 18
 	font_context.draw_text(dx, dy, 'backend: ${gfx.query_backend()}')
 
@@ -363,7 +373,13 @@ fn my_event_manager(mut ev gg.Event, mut state AppState) {
 		if ev.key_code == .escape {
 			println('escape key pressed, exiting')
 		} else if ev.key_code == .w {
-			state.mouse_x = int(100)
+			state.y_pos++
+		} else if ev.key_code == .s {
+			state.y_pos--
+		} else if ev.key_code == .a {
+			state.x_pos--
+		} else if ev.key_code == .d {
+			state.x_pos++
 		}
 	}
 
