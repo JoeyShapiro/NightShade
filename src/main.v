@@ -249,6 +249,7 @@ fn (state &AppState) render_font() {
 	mut dy := f32(0.0)
 	lh := f32(0.0)
 	white := sfons.rgba(255, 255, 255, 255)
+	font_size := f32(32.0)
 
 	font_context := state.font_context
 	font_context.clear_state()
@@ -260,19 +261,19 @@ fn (state &AppState) render_font() {
 	descender := f32(0.0)
 	font_context.vert_metrics(&ascender, &descender, &lh)
 	dy += lh
-	font_context.set_size(18.0)
+	font_context.set_size(font_size)
 	font_context.set_color(white)
 	font_context.set_alignment(.left | .baseline)
 	font_context.draw_text(dx, dy, 'tps: ${state.tps}')
-	dy += 18
+	dy += font_size
 	font_context.draw_text(dx, dy, 'fps: ${state.fps}')
-	dy += 18
+	dy += font_size
 	font_context.draw_text(dx, dy, 'Max fps: ${state.max_fps}')
-	dy += 18
+	dy += font_size
 	font_context.draw_text(dx, dy, 'Min fps: ${state.min_fps}')
-	dy += 18
+	dy += font_size
 	font_context.draw_text(dx, dy, 'shader: ${state.sms} µs')
-	dy += 18
+	dy += font_size
 	font_context.draw_text(dx, dy, 'backend: ${gfx.query_backend()}')
 
 	sfons.flush(font_context)
